@@ -46,6 +46,11 @@ services:
     build:
       context: .
       dockerfile: apps/storefront/Dockerfile
+      args:
+        NEXT_PUBLIC_MEDUSA_BACKEND_URL: ${NEXT_PUBLIC_MEDUSA_BACKEND_URL:-http://localhost:9000}
+        NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: ${NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY:-}
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:8000}
+        NEXT_PUBLIC_DEFAULT_REGION: ${NEXT_PUBLIC_DEFAULT_REGION:-dk}
     container_name: medusa_storefront
     restart: unless-stopped
     depends_on:
