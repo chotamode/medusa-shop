@@ -1,0 +1,29 @@
+# Development image for the Medusa backend.
+# Unlike the production Dockerfile, this does NOT run `medusa build`.
+# Source is bind-mounted from the host at runtime (see docker-compose.dev.yml)
+# and `medusa develop` provides hot-reload.
+#
+# Working dir is /server (NOT /app) on purpose: in dev the admin dashboard is
+# served by Vite under the base path "/app", and the admin plugin imports the
+# i18n file by its absolute path. If that path started with "/app" (the workdir)
+# it would collide with the Vite base and fail to resolve, leaving /app blank.
+# Using /server avoids the collision. See the Medusa Docker guide ("use /server").
+FROM node:20-alpine
+
+WORKDIR /server
+
+RUN npm install -g pnpm@10.11.1
+
+# Install full workspace deps (including devDependencies) using the lockfile.
+# Only package manifests are copied so this layer is cached across source edits.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json .npmrc ./
+COPY apps/backend/package.json ./apps/backend/package.json
+RUN pnpm install --frozen-lockfile --filter @dtc/backend...
+
+WORKDIR /server/apps/backend
+
+EXPOSE 9000
+
+# `predeploy` runs `medusa db:migrate`, which also executes the tracked
+# seed migration script exactly once. Then start the hot-reload dev server.
+CMD ["sh", "-c", "pnpm predeploy && pnpm dev"]

@@ -1,0 +1,25 @@
+# Development image for the Next.js storefront.
+# Unlike the production Dockerfile, this does NOT run `next build`.
+# Source is bind-mounted from the host at runtime (see docker-compose.dev.yml)
+# and `next dev --turbopack` provides hot-reload.
+#
+# Note: NEXT_PUBLIC_* vars are read at RUNTIME by `next dev` (not baked like a
+# production build), so they are passed as plain env vars in the compose file
+# and can be changed with just a container restart.
+FROM node:20-alpine
+
+WORKDIR /app
+
+RUN npm install -g pnpm@10.11.1
+
+# Install full workspace deps (including devDependencies) using the lockfile.
+# Only package manifests are copied so this layer is cached across source edits.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json .npmrc ./
+COPY apps/storefront/package.json ./apps/storefront/package.json
+RUN pnpm install --frozen-lockfile --filter @dtc/storefront...
+
+WORKDIR /app/apps/storefront
+
+EXPOSE 8000
+
+CMD ["pnpm", "dev"]

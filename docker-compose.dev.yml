@@ -1,0 +1,104 @@
+# Development stack with hot-reload. Run with:
+#   docker compose -f docker-compose.dev.yml up --build
+#
+# Differences from the production docker-compose.yml:
+#   - Source is bind-mounted, so edits on the host reload instantly
+#     (medusa develop / next dev). No image rebuild needed for code changes.
+#   - The storefront shares the backend container's network namespace
+#     (network_mode: "service:backend"). The storefront reads a single
+#     NEXT_PUBLIC_MEDUSA_BACKEND_URL for both its server-side (SSR/middleware)
+#     and browser code; sharing the namespace makes http://localhost:9000 mean
+#     "the backend" from BOTH the browser and the storefront's SSR, so one URL
+#     works everywhere. This works on Docker Desktop (where network_mode: host
+#     would bind inside the VM and be unreachable from the host).
+#     Because the namespace is owned by `backend`, the storefront's port (8000)
+#     is published on the `backend` service, not the storefront service.
+#   - Separate `postgres_data_dev` volume keeps dev data isolated from prod.
+#   - Weak default secrets — fine for local dev only.
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: medusa_postgres_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: medusa
+      POSTGRES_USER: medusa
+      POSTGRES_PASSWORD: medusa
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    networks:
+      - medusa_dev_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: medusa_redis_dev
+    restart: unless-stopped
+    networks:
+      - medusa_dev_network
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile.dev
+    container_name: medusa_backend_dev
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgres://medusa:medusa@postgres:5432/medusa
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=devsecret
+      - COOKIE_SECRET=devsecret
+      - STORE_CORS=http://localhost:8000
+      - ADMIN_CORS=http://localhost:9000
+      - AUTH_CORS=http://localhost:8000,http://localhost:9000
+    volumes:
+      # Bind-mount source for hot-reload; keep image-installed deps via the
+      # anonymous volume so the host's node_modules don't shadow them.
+      # Path is /server (not /app) to avoid the admin Vite base-path collision.
+      - ./apps/backend:/server/apps/backend
+      - /server/apps/backend/node_modules
+    ports:
+      # 9000 = backend/admin. 8000 = storefront (it shares this namespace).
+      # 5173 = admin (Vite) HMR/module server in dev — needed for /app to load.
+      - "9000:9000"
+      - "8000:8000"
+      - "5173:5173"
+    networks:
+      - medusa_dev_network
+
+  storefront:
+    build:
+      context: .
+      dockerfile: apps/storefront/Dockerfile.dev
+    container_name: medusa_storefront_dev
+    restart: unless-stopped
+    depends_on:
+      - backend
+    # Share the backend's network namespace so localhost:9000 reaches the
+    # backend from both SSR and the browser. (No own `ports`/`networks` allowed
+    # here — they are inherited from the backend container.)
+    network_mode: "service:backend"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_MEDUSA_BACKEND_URL=http://localhost:9000
+      # Created by the seed on first backend start. Grab it from the admin or:
+      #   docker exec medusa_postgres_dev psql -U medusa -d medusa -tAc \
+      #     "select token from api_key where type='publishable'"
+      # then put it in a root .env file (see .env.dev.example) and restart this service.
+      - NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=${NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY:-}
+      - NEXT_PUBLIC_BASE_URL=http://localhost:8000
+      - NEXT_PUBLIC_DEFAULT_REGION=dk
+    volumes:
+      - ./apps/storefront:/app/apps/storefront
+      - /app/apps/storefront/node_modules
+      - /app/apps/storefront/.next
+
+volumes:
+  postgres_data_dev:
+
+networks:
+  medusa_dev_network:
+    driver: bridge

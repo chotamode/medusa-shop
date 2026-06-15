@@ -45,6 +45,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# IDE
+.idea/
+.vscode/
+
 # macOS system files
 .DS_Store
 .DS_Store?
