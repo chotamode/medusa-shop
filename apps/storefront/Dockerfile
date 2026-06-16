@@ -9,23 +9,20 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json .npmrc ./
 COPY apps/storefront/package.json ./apps/storefront/package.json
 RUN pnpm install --frozen-lockfile --filter @dtc/storefront...
 
-# Copy storefront source and build
+# Copy storefront source. NOTE: we deliberately do NOT run `next build` here.
+# The build inlines NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY, which only exists after
+# the backend has booted and seeded it. So the build is deferred to container
+# start (docker-entrypoint.sh), where the key is fetched live from the database.
 COPY apps/storefront ./apps/storefront
 WORKDIR /app/apps/storefront
 
-# NEXT_PUBLIC_* vars are baked into the build, so they must be present at build time.
-# The publishable key is created in the Medusa admin after the backend runs.
-ARG NEXT_PUBLIC_MEDUSA_BACKEND_URL
-ARG NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
-ARG NEXT_PUBLIC_BASE_URL
-ARG NEXT_PUBLIC_DEFAULT_REGION
-ENV NEXT_PUBLIC_MEDUSA_BACKEND_URL=$NEXT_PUBLIC_MEDUSA_BACKEND_URL \
-    NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=$NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY \
-    NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL \
-    NEXT_PUBLIC_DEFAULT_REGION=$NEXT_PUBLIC_DEFAULT_REGION
+# Fingerprint the source so the entrypoint can skip rebuilding when nothing
+# changed (fast restarts) and rebuild only when the code changes (auto-redeploy).
+RUN find . -type f -not -path './node_modules/*' -not -path './.next/*' \
+      -exec sha256sum {} + | sort | sha256sum | awk '{print $1}' > /app/.source-stamp
 
-RUN pnpm build
+RUN chmod +x docker-entrypoint.sh
 
 EXPOSE 8000
 
-CMD ["pnpm", "start"]
+ENTRYPOINT ["./docker-entrypoint.sh"]
