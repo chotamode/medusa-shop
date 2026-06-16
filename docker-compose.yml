@@ -65,7 +65,10 @@ services:
       - NODE_ENV=production
       # Used by the entrypoint to read the seeded publishable key from Postgres.
       - DATABASE_URL=${DATABASE_URL:-postgres://medusa:medusa@postgres:5432/medusa}
-      - NEXT_PUBLIC_MEDUSA_BACKEND_URL=${NEXT_PUBLIC_MEDUSA_BACKEND_URL:-http://localhost:9000}
+      # Server-side URL: stays inside Docker network, used by SSR and middleware.
+      - MEDUSA_BACKEND_URL=http://backend:9000
+      # Public URL: set this in Coolify to your backend's public URL for browser-side calls.
+      - NEXT_PUBLIC_MEDUSA_BACKEND_URL=${NEXT_PUBLIC_MEDUSA_BACKEND_URL:-http://backend:9000}
       - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL:-http://localhost:8000}
       - NEXT_PUBLIC_DEFAULT_REGION=${NEXT_PUBLIC_DEFAULT_REGION:-dk}
     networks:
