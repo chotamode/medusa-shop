@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:20
 
 WORKDIR /app
 
@@ -16,7 +16,7 @@ RUN pnpm build
 
 # Install production dependencies inside the build output
 WORKDIR /app/apps/backend/.medusa/server
-RUN npm install --omit=dev
+RUN npm install --omit=dev --no-audit --no-fund
 
 # Entrypoint runs migrations then starts the server
 COPY apps/backend/docker-entrypoint.sh /app/apps/backend/docker-entrypoint.sh
