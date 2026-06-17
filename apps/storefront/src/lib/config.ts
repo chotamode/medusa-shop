@@ -1,11 +1,14 @@
 import { getLocaleHeader } from "@lib/util/get-locale-header"
 import Medusa, { FetchArgs, FetchInput } from "@medusajs/js-sdk"
 
-// Server-side (SSR/RSC) uses MEDUSA_BACKEND_URL (Docker internal, never reaches a proxy).
-// Browser uses NEXT_PUBLIC_MEDUSA_BACKEND_URL (set in Coolify to the public backend URL).
+// Server-side (SSR/RSC) must use the Docker-internal backend, never the public
+// domain (a hairpin through the proxy hangs). Browser uses the public URL.
 const isServer = typeof window === "undefined"
 let MEDUSA_BACKEND_URL = isServer
-  ? (process.env.MEDUSA_BACKEND_URL || process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://backend:9000")
+  ? (process.env.MEDUSA_BACKEND_URL ||
+     (process.env.NODE_ENV === "production"
+       ? "http://backend:9000"
+       : process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000"))
   : (process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000")
 
 export const sdk = new Medusa({
