@@ -1,7 +1,13 @@
 import { HttpTypes } from "@medusajs/types"
 import { NextRequest, NextResponse } from "next/server"
 
-const BACKEND_URL = process.env.MEDUSA_BACKEND_URL || process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL
+// Middleware runs server-side on every request. Use the Docker-internal backend
+// in production so it never hairpins through the public proxy (which times out).
+const BACKEND_URL =
+  process.env.MEDUSA_BACKEND_URL ||
+  (process.env.NODE_ENV === "production"
+    ? "http://backend:9000"
+    : process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000")
 const PUBLISHABLE_API_KEY = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
 const DEFAULT_REGION = process.env.NEXT_PUBLIC_DEFAULT_REGION || "dk"
 
