@@ -39,6 +39,7 @@ services:
       - AUTH_CORS=${AUTH_CORS:-http://localhost:8000,http://localhost:9000}
     networks:
       - medusa_network
+      - coolify
     # The storefront waits for this healthcheck before building. /health returns
     # 200 only after the entrypoint finished migrations + seed, so by the time
     # the backend is "healthy" the publishable key already exists in the DB.
@@ -73,6 +74,7 @@ services:
       - NEXT_PUBLIC_DEFAULT_REGION=${NEXT_PUBLIC_DEFAULT_REGION:-dk}
     networks:
       - medusa_network
+      - coolify
     volumes:
       # Persist the Next.js build output so restarts reuse it; the entrypoint
       # rebuilds only when the source fingerprint or public config changed.
@@ -85,3 +87,5 @@ volumes:
 networks:
   medusa_network:
     driver: bridge
+  coolify:
+    external: true
